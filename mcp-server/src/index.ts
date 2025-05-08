@@ -4,9 +4,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
-import { createTweet } from "./twitter-config";
-
-
+import {
+  createTweet,
+  deleteTweet,
+  getUserProfile,
+  getUserTweets,
+  scheduleTweets
+} from "./twitter-config";
 
 const app = express();
 app.use(express.json());
@@ -21,19 +25,15 @@ app.post("/mcp", async (req, res) => {
   let transport: StreamableHTTPServerTransport;
 
   if (sessionId && transports[sessionId]) {
-    // Reuse existing transport
     transport = transports[sessionId];
   } else if (!sessionId && isInitializeRequest(req.body)) {
-    // New initialization request
     transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (sessionId) => {
-        // Store the transport by session ID
         transports[sessionId] = transport;
       },
     });
 
-    // Clean up transport when closed
     transport.onclose = () => {
       if (transport.sessionId) {
         delete transports[transport.sessionId];
@@ -44,76 +44,23 @@ app.post("/mcp", async (req, res) => {
       version: "1.0.0",
     });
 
-    // ... set up server resources, tools, and prompts ...
-    server.tool(
-      "sum",
-      "sum of two numbers",
-      {
-        a: z.number(),
-        b: z.number(),
-      },
-      async (args) => ({
-        content: [
-          {
-            type: "text",
-            text: `The sum of ${args.a} and ${args.b} is ${args.a + args.b}`,
-          },
-        ],
-      })
-    );
-
     server.tool(
       "tweet",
       "create a tweet",
       {
-        tweet: z.string(),
+        tweet: z.string().min(1).max(280),
       },
       async (args) => {
-        await createTweet(args.tweet);
-        
-        console.log(`Tweet created: ${args.tweet}`);
+        const tweet = await createTweet(args.tweet);
         return {
           content: [
             {
               type: "text",
-              text: `Tweet created successfully: ${args.tweet}`,
+              text: `Tweet created successfully: ${tweet.text}`,
             },
           ],
         };
       }
-    );
-
-    server.tool(
-      "greet",
-      "generate a greeting message",
-      {
-        name: z.string(),
-      },
-      async (args) => ({
-        content: [
-          {
-            type: "text",
-            text: `Hello, ${args.name}! 👋 Hope you're having a great day!`,
-          },
-        ],
-      })
-    );
-
-    server.tool(
-      "multiply",
-      "multiply two numbers",
-      {
-        a: z.number(),
-        b: z.number(),
-      },
-      async (args) => ({
-        content: [
-          {
-            type: "text",
-            text: `${args.a} multiplied by ${args.b} is ${args.a * args.b}`,
-          },
-        ],
-      })
     );
 
     server.tool(
@@ -128,6 +75,94 @@ app.post("/mcp", async (req, res) => {
           },
         ],
       })
+    );
+
+    server.tool(
+      "getUserProfile",
+      "retrieve a Twitter user's profile",
+      async () => {
+        const profile = await getUserProfile();
+        return {
+          content: [
+            {
+              type: "text",
+              text: `User Profile: ${JSON.stringify(profile, null, 2)}`,
+            },
+          ],
+        };
+      }
+    );
+
+    server.tool(
+      "getUserTweets",
+      "retrieve a user's recent tweets",
+      {
+        maxResults: z.number().int().min(5).max(100).optional().default(10),
+      },
+      async (args) => {
+        const tweets = await getUserTweets(args.maxResults);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Recent Tweets: ${JSON.stringify(tweets, null, 2)}`,
+            },
+          ],
+        };
+      }
+    );
+
+    server.tool(
+      "deleteTweet",
+      "delete a specific tweet by ID",
+      {
+        tweetId: z.string().min(1),
+      },
+      async (args) => {
+        const result = await deleteTweet(args.tweetId);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Tweet deleted successfully: ${JSON.stringify(result)}`,
+            },
+          ],
+        };
+      }
+    );
+
+    server.tool(
+      "scheduleTweets",
+      "schedule multiple tweets for future posting",
+      {
+        tweets: z
+          .array(
+            z.object({
+              text: z.string().min(1).max(280),
+              scheduleTime: z
+                .string()
+                .refine((val) => !isNaN(Date.parse(val)), {
+                  message: "Invalid date format",
+                }),
+            })
+          )
+          .min(1),
+      },
+      async (args) => {
+        const results = await scheduleTweets(args.tweets);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Tweets scheduled successfully: ${JSON.stringify(
+                results,
+                null,
+                2
+              )}`,
+            },
+          ],
+        };
+      }
     );
 
     // Connect to the MCP server
