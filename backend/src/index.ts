@@ -2,7 +2,6 @@ import {
   GoogleGenAI,
   Tool as GEMINI_TOOL,
   Type,
-  GenerateContentResponse,
 } from "@google/genai";
 import readline from "readline/promises";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
