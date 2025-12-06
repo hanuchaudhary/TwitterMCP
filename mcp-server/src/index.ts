@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express from "express";
 import { randomUUID } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -9,16 +9,13 @@ import {
   deleteTweet,
   getUserProfile,
   getUserTweets,
-  scheduleTweets
+  scheduleTweets,
 } from "./twitter-config";
 
 const app = express();
 app.use(express.json());
 
-// Map to store transports by session ID
 const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
-
-// Handle POST requests for client-to-server communication
 app.post("/mcp", async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   let transport: StreamableHTTPServerTransport;
@@ -129,45 +126,8 @@ app.post("/mcp", async (req, res) => {
         };
       }
     );
-
-    server.tool(
-      "scheduleTweets",
-      "schedule multiple tweets for future posting",
-      {
-        tweets: z
-          .array(
-            z.object({
-              text: z.string().min(1).max(280),
-              scheduleTime: z
-                .string()
-                .refine((val) => !isNaN(Date.parse(val)), {
-                  message: "Invalid date format",
-                }),
-            })
-          )
-          .min(1),
-      },
-      async (args) => {
-        const results = await scheduleTweets(args.tweets);
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Tweets scheduled successfully: ${JSON.stringify(
-                results,
-                null,
-                2
-              )}`,
-            },
-          ],
-        };
-      }
-    );
-
-    // Connect to the MCP server
     await server.connect(transport);
   } else {
-    // Invalid request
     res.status(400).json({
       jsonrpc: "2.0",
       error: {
@@ -178,12 +138,9 @@ app.post("/mcp", async (req, res) => {
     });
     return;
   }
-
-  // Handle the request
   await transport.handleRequest(req, res, req.body);
 });
 
-// Reusable handler for GET and DELETE requests
 const handleSessionRequest = async (
   req: express.Request,
   res: express.Response
@@ -198,10 +155,7 @@ const handleSessionRequest = async (
   await transport.handleRequest(req, res);
 };
 
-// Handle GET requests for server-to-client notifications via SSE
 app.get("/mcp", handleSessionRequest);
-
-// Handle DELETE requests for session termination
 app.delete("/mcp", handleSessionRequest);
 
 app.listen(8000, () => {

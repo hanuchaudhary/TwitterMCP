@@ -48,18 +48,12 @@ class MCPClient {
     }
   }
 
-  // Helper function to sanitize JSON Schema for Gemini compatibility
   private sanitizeSchema(schema: any): any {
     if (!schema) return schema;
-
     const sanitized = { ...schema };
-
-    // Remove unsupported fields
     delete sanitized.additionalProperties;
     delete sanitized.$schema;
     delete sanitized.definitions;
-
-    // Recursively sanitize properties and items
     if (sanitized.properties) {
       sanitized.properties = Object.fromEntries(
         Object.entries(sanitized.properties).map(([key, value]) => [
@@ -118,8 +112,6 @@ class MCPClient {
         if (message.toLowerCase() === "quit") {
           break;
         }
-
-        // Handle tweet command
         if (message.startsWith("!tweet")) {
           const tweetText = message.slice(6).trim();
           if (!tweetText) {
@@ -139,7 +131,6 @@ class MCPClient {
           }
         }
 
-        // Handle other tool commands
         if (message.startsWith("!tool")) {
           const parts = message.slice(5).trim().split(" ");
           const toolName = parts[0];
@@ -169,8 +160,6 @@ class MCPClient {
           }
           continue;
         }
-
-        // Regular chat interaction
         this.promptHistory.push({ role: "user", parts: [{ text: message }] });
 
         try {
@@ -275,7 +264,6 @@ class MCPClient {
           });
         }
 
-        // Limit prompt history to avoid excessive token usage
         if (this.promptHistory.length > 10) {
           this.promptHistory = this.promptHistory.slice(-10);
         }

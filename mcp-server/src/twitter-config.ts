@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 import { TwitterApi } from "twitter-api-v2";
 dotenv.config();
 
-// Twitter API Client Setup
 const requiredEnvVars = [
   "TWITTER_API_KEY",
   "TWITTER_API_SECRET",
@@ -51,8 +50,6 @@ export class TwitterService {
   async getUserProfile() {
     try {
       const userId = await this.getUserId();
-
-      // Fetch detailed user data
       const user = await this.client.v2.user(userId, {
         "user.fields": [
           "id",
@@ -68,11 +65,10 @@ export class TwitterService {
           "protected",
           "pinned_tweet_id",
           "entities",
-          "withheld"
-        ]
+          "withheld",
+        ],
       });
 
-      // Fetch user's recent tweets
       const recentTweets = await this.client.v2.userTimeline(userId, {
         max_results: 5,
         "tweet.fields": [
@@ -80,11 +76,10 @@ export class TwitterService {
           "public_metrics",
           "entities",
           "context_annotations",
-          "attachments"
-        ]
+          "attachments",
+        ],
       });
 
-      // Compile comprehensive user data
       const userData = {
         id: user.data.id,
         name: user.data.name,
@@ -100,18 +95,19 @@ export class TwitterService {
           followers_count: user.data.public_metrics?.followers_count || 0,
           following_count: user.data.public_metrics?.following_count || 0,
           tweet_count: user.data.public_metrics?.tweet_count || 0,
-          listed_count: user.data.public_metrics?.listed_count || 0
+          listed_count: user.data.public_metrics?.listed_count || 0,
         },
-        recent_tweets: recentTweets.data.data?.map(tweet => ({
-          id: tweet.id,
-          text: tweet.text,
-          created_at: tweet.created_at,
-          metrics: tweet.public_metrics,
-          entities: tweet.entities
-        })) || [],
+        recent_tweets:
+          recentTweets.data.data?.map((tweet) => ({
+            id: tweet.id,
+            text: tweet.text,
+            created_at: tweet.created_at,
+            metrics: tweet.public_metrics,
+            entities: tweet.entities,
+          })) || [],
         pinned_tweet_id: user.data.pinned_tweet_id,
         entities: user.data.entities,
-        withheld: user.data.withheld
+        withheld: user.data.withheld,
       };
 
       console.log("User profile fetched successfully:", userData);
@@ -125,7 +121,9 @@ export class TwitterService {
   async getUserTweets(maxResults: number = 10) {
     try {
       const userId = await this.getUserId();
-      const tweets = await this.client.v2.userTimeline(userId, { max_results: maxResults });
+      const tweets = await this.client.v2.userTimeline(userId, {
+        max_results: maxResults,
+      });
       return tweets.data.data.map((tweet: any) => ({
         id: tweet.id,
         text: tweet.text,
@@ -155,8 +153,6 @@ export class TwitterService {
         if (scheduledTime <= new Date()) {
           throw new Error("Scheduled time must be in the future");
         }
-        // Note: Twitter API v2 does not natively support scheduling; this is a placeholder
-        // Simulate scheduling by delaying tweet creation
         const delay = scheduledTime.getTime() - Date.now();
         setTimeout(async () => {
           const response = await this.createTweet(tweet.text);
@@ -172,13 +168,13 @@ export class TwitterService {
   }
 }
 
-// Create and export a singleton instance
 export const twitterService = new TwitterService();
-
-// Export individual functions for backward compatibility
 export const createTweet = (tweet: string) => twitterService.createTweet(tweet);
 export const getUserProfile = () => twitterService.getUserProfile();
-export const getUserTweets = (maxResults: number = 10) => twitterService.getUserTweets(maxResults);
-export const deleteTweet = (tweetId: string) => twitterService.deleteTweet(tweetId);
-export const scheduleTweets = (tweets: { text: string; scheduleTime: string }[]) =>
-  twitterService.scheduleTweets(tweets);
+export const getUserTweets = (maxResults: number = 10) =>
+  twitterService.getUserTweets(maxResults);
+export const deleteTweet = (tweetId: string) =>
+  twitterService.deleteTweet(tweetId);
+export const scheduleTweets = (
+  tweets: { text: string; scheduleTime: string }[]
+) => twitterService.scheduleTweets(tweets);

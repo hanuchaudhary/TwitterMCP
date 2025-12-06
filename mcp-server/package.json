@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "bun src/index.ts",
     "build": "tsc && node dist/index.js"
   },
   "keywords": [],
